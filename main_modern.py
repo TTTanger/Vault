@@ -699,7 +699,8 @@ class ModernPasswordVault:
         if item:
             self.tree.selection_set(item)
             context_menu = tk.Menu(self.root, tearoff=0)
-            context_menu.add_command(label="编辑密码", command=self.edit_password)
+            # 使用与双击相同的快速编辑逻辑
+            context_menu.add_command(label="编辑密码", command=self.quick_edit_account)
             context_menu.add_command(label="删除密码", command=self.delete_password)
             context_menu.add_separator()
             context_menu.add_command(label="复制密码", command=self.copy_password)
@@ -1662,7 +1663,7 @@ class VaultSetupDialog:
         cancel_btn = tk.Button(button_frame, text="取消", 
                               font=("SF Pro Text", 12, 'bold'),
                               bg=self.colors['surface'],
-                              fg=self.colors['text'],
+                              fg='#262730',
                               relief='flat', bd=1,
                               cursor='hand2',
                               command=self.cancel)
@@ -1671,7 +1672,7 @@ class VaultSetupDialog:
         ok_btn = tk.Button(button_frame, text="确定", 
                           font=("SF Pro Text", 12, "bold"),
                           bg=self.colors['surface'],
-                          fg=self.colors['text'],
+                          fg='#262730',
                           relief='flat', bd=1,
                           cursor='hand2',
                           command=self.ok)
@@ -1758,7 +1759,7 @@ class VaultUnlockDialog:
         cancel_btn = tk.Button(button_frame, text="取消", 
                               font=("SF Pro Text", 12, 'bold'),
                               bg=self.colors['surface'],
-                              fg=self.colors['text'],
+                              fg='#262730',
                               relief='flat', bd=1,
                               cursor='hand2',
                               command=self.cancel)
@@ -1767,7 +1768,7 @@ class VaultUnlockDialog:
         ok_btn = tk.Button(button_frame, text="解锁", 
                           font=("SF Pro Text", 12, "bold"),
                           bg=self.colors['primary'],
-                          fg=self.colors['white'],
+                          fg='#262730',
                           relief='flat', bd=0,
                           cursor='hand2',
                           command=self.ok)
@@ -1900,7 +1901,7 @@ class PasswordDialog:
         cancel_btn = tk.Button(button_frame, text="取消", 
                               font=("SF Pro Text", 12, 'bold'),
                               bg=self.colors['surface'],
-                              fg=self.colors['text'],
+                              fg='#262730',
                               relief='flat', bd=1,
                               cursor='hand2',
                               command=self.cancel)
@@ -1909,7 +1910,7 @@ class PasswordDialog:
         ok_btn = tk.Button(button_frame, text="确定", 
                           font=("SF Pro Text", 12, "bold"),
                           bg=self.colors['surface'],
-                          fg=self.colors['text'],
+                          fg='#262730',
                           relief='flat', bd=1,
                           cursor='hand2',
                           command=self.ok)
@@ -2081,7 +2082,7 @@ class AccountManagerDialog:
         cancel_btn = tk.Button(right_buttons, text="取消", 
                               font=("SF Pro Text", 11, 'bold'),
                               bg='#6C757D',
-                              fg=self.colors['white'],
+                              fg='#262730',
                               relief='flat', bd=0,
                               cursor='hand2',
                               command=self.cancel)
@@ -2245,7 +2246,7 @@ class AccountDeleteDialog:
         cancel_btn = tk.Button(button_frame, text="取消", 
                               font=("SF Pro Text", 11, 'bold'),
                               bg=self.colors['surface'],
-                              fg=self.colors['text'],
+                              fg='#262730',
                               relief='flat', bd=1,
                               command=self.cancel)
         cancel_btn.pack(side=tk.RIGHT, padx=(10, 0), ipadx=20, ipady=6)
