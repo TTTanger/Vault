@@ -922,7 +922,7 @@ class ModernPasswordVault:
                 accounts = pwd.get('accounts', [])
                 for account in accounts:
                     if str(account.get('username', '')) == username:
-                        # 直接编辑这个账户
+                        # 直接编辑这个账户（支持修改网站名称并搬移账户）
                         dialog = PasswordDialog(self.root, self.colors, f"编辑 {website} 的账户", {
                             'website': website,
                             'username': account['username'],
@@ -930,10 +930,48 @@ class ModernPasswordVault:
                             'description': account.get('description', '')
                         })
                         if dialog.result:
-                            account['username'] = dialog.result['username']
-                            account['password'] = dialog.result['password']
-                            account['description'] = dialog.result.get('description', '')
-                            account['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
+                            new_website = dialog.result['website'].strip()
+                            # 如果网站名未变化，原地更新
+                            if new_website.lower() == website.lower():
+                                account['username'] = dialog.result['username']
+                                account['password'] = dialog.result['password']
+                                account['description'] = dialog.result.get('description', '')
+                                account['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
+                            else:
+                                # 从原网站移除该账户
+                                updated_accounts = [acc for acc in accounts if str(acc.get('username', '')) != username]
+                                pwd['accounts'] = updated_accounts
+                                # 将账户搬移到目标网站（合并或创建新网站）
+                                target_item = None
+                                for item in self.passwords:
+                                    if str(item.get('website', '')).lower() == new_website.lower():
+                                        target_item = item
+                                        break
+                                moved_account = {
+                                    'username': dialog.result['username'],
+                                    'password': dialog.result['password'],
+                                    'description': dialog.result.get('description', ''),
+                                    'created_time': account.get('created_time', time.strftime('%Y-%m-%d %H:%M')),
+                                    'modified_time': time.strftime('%Y-%m-%d %H:%M')
+                                }
+                                if target_item:
+                                    # 若存在相同用户名则覆盖，否则追加
+                                    replaced = False
+                                    for existing_acc in target_item['accounts']:
+                                        if existing_acc.get('username') == moved_account['username']:
+                                            existing_acc.update(moved_account)
+                                            replaced = True
+                                            break
+                                    if not replaced:
+                                        target_item['accounts'].append(moved_account)
+                                else:
+                                    self.passwords.append({
+                                        'website': new_website,
+                                        'accounts': [moved_account]
+                                    })
+                                # 如果原网站下没有账户了，删除原网站
+                                if not pwd['accounts']:
+                                    self.passwords = [item for item in self.passwords if item is not pwd]
                             self.save_passwords()
                             self.update_password_list()
                             self.update_stats()
@@ -961,11 +999,40 @@ class ModernPasswordVault:
                 break
         
         if password_data:
-            # 显示账户管理对话框
+            # 显示账户管理对话框（支持网站名重命名）
             dialog = AccountManagerDialog(self.root, self.colors, website, password_data['accounts'])
             if dialog.result:
-                password_data['accounts'] = dialog.result
-                password_data['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
+                new_website = dialog.result.get('website', website).strip()
+                new_accounts = dialog.result.get('accounts', password_data['accounts'])
+                if new_website.lower() == website.lower():
+                    password_data['accounts'] = new_accounts
+                    password_data['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
+                else:
+                    # 将整个网站重命名或合并到已存在网站
+                    target_item = None
+                    for item in self.passwords:
+                        if str(item.get('website', '')).lower() == new_website.lower():
+                            target_item = item
+                            break
+                    if target_item:
+                        # 合并账户（相同用户名覆盖）
+                        for acc in new_accounts:
+                            merged = False
+                            for existing in target_item['accounts']:
+                                if existing.get('username') == acc.get('username'):
+                                    existing.update(acc)
+                                    merged = True
+                                    break
+                            if not merged:
+                                target_item['accounts'].append(acc)
+                        # 删除旧网站项
+                        self.passwords = [item for item in self.passwords if item is not password_data]
+                        target_item['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
+                    else:
+                        # 直接重命名
+                        password_data['website'] = new_website
+                        password_data['accounts'] = new_accounts
+                        password_data['modified_time'] = time.strftime('%Y-%m-%d %H:%M')
                 self.save_passwords()
                 self.update_password_list()
                 self.update_stats()
@@ -1733,7 +1800,7 @@ class PasswordDialog:
         
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("520x600")
+        self.dialog.geometry("600x640")
         self.dialog.resizable(False, False)
         self.dialog.configure(bg=colors['light'])
         
@@ -1907,7 +1974,7 @@ class AccountManagerDialog:
         
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(f"管理 {website} 的账户")
-        self.dialog.geometry("600x500")
+        self.dialog.geometry("720x560")
         self.dialog.resizable(False, False)
         self.dialog.configure(bg=colors['light'])
         
@@ -1929,6 +1996,20 @@ class AccountManagerDialog:
                               fg=self.colors['text_primary'],
                               bg=self.colors['light'])
         title_label.pack(pady=(0, 20))
+
+        # 可编辑的网站/应用名称
+        website_frame = tk.Frame(main_frame, bg=self.colors['light'])
+        website_frame.pack(fill=tk.X, pady=(0, 15))
+        tk.Label(website_frame, text="网站/应用:", 
+                font=("SF Pro Text", 12),
+                fg=self.colors['text_primary'],
+                bg=self.colors['light']).pack(anchor=tk.W)
+        self.website_entry = tk.Entry(website_frame, 
+                                     font=("SF Pro Text", 12),
+                                     relief='flat', bd=1,
+                                     bg=self.colors['white'])
+        self.website_entry.pack(fill=tk.X, pady=(5, 0), ipady=8)
+        self.website_entry.insert(0, self.website)
         
         # 账户列表
         list_frame = tk.Frame(main_frame, bg=self.colors['white'], relief='flat', bd=0)
@@ -1936,17 +2017,17 @@ class AccountManagerDialog:
         
         # 创建Treeview显示账户
         columns = ('账号', '密码', '描述', '创建时间')
-        self.tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=8)
+        self.tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=10)
         
         self.tree.heading('账号', text='账号')
         self.tree.heading('密码', text='密码')
         self.tree.heading('描述', text='描述')
         self.tree.heading('创建时间', text='创建时间')
         
-        self.tree.column('账号', width=150)
-        self.tree.column('密码', width=120)
-        self.tree.column('描述', width=150)
-        self.tree.column('创建时间', width=120)
+        self.tree.column('账号', width=180)
+        self.tree.column('密码', width=140)
+        self.tree.column('描述', width=220)
+        self.tree.column('创建时间', width=150)
         
         # 滚动条
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -1995,7 +2076,7 @@ class AccountManagerDialog:
         
         # 右侧按钮
         right_buttons = tk.Frame(button_frame, bg=self.colors['light'])
-        right_buttons.pack(side=tk.RIGHT)
+        right_buttons.pack(side=tk.RIGHT, padx=10)
         
         cancel_btn = tk.Button(right_buttons, text="取消", 
                               font=("SF Pro Text", 11, 'bold'),
@@ -2009,7 +2090,7 @@ class AccountManagerDialog:
         ok_btn = tk.Button(right_buttons, text="确定", 
                           font=("SF Pro Text", 11, "bold"),
                           bg=self.colors['surface'],
-                          fg=self.colors['text'],
+                          fg='#262730',
                           relief='flat', bd=1,
                           cursor='hand2',
                           command=self.ok)
@@ -2083,7 +2164,11 @@ class AccountManagerDialog:
     
     def ok(self):
         """确定按钮"""
-        self.result = self.accounts
+        new_website = self.website_entry.get().strip() or self.website
+        self.result = {
+            'website': new_website,
+            'accounts': self.accounts
+        }
         self.dialog.destroy()
     
     def cancel(self):
