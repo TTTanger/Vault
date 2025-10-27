@@ -818,16 +818,22 @@ class ModernPasswordVault:
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        # 过滤并添加匹配的项目
+        # 如果没有搜索词，显示所有项目
+        if not search_term:
+            self.update_password_list()
+            self.update_stats()
+            return
+        
+        # 过滤并添加匹配的项目 - 与update_password_list保持相同的显示格式
         filtered_websites = 0
         filtered_accounts = 0
         for password_data in self.passwords:
-            website = password_data.get('website', '').lower()
+            website = password_data.get('website', '')
             accounts = password_data.get('accounts', [])
             
             # 检查网站名称或任何账户是否匹配
             matches = False
-            if search_term in website:
+            if search_term in website.lower():
                 matches = True
             else:
                 for account in accounts:
@@ -840,19 +846,20 @@ class ModernPasswordVault:
                 filtered_websites += 1
                 filtered_accounts += len(accounts)
                 
-                # 显示第一个账户作为主要信息
-                first_account = accounts[0]
-                username = first_account.get('username', '')
-                password = first_account.get('password', '')
-                created_time = first_account.get('created_time', '')
-                
-                display_password = password if self.show_passwords else '•' * len(password)
-                account_count = len(accounts)
-                display_username = username
-                if account_count > 1:
-                    display_username = f"{username} (+{account_count-1}个账户)"
-                
-                self.tree.insert('', 'end', values=(website, display_username, display_password, created_time))
+                # 使用与update_password_list相同的显示格式 - 每个账户显示为独立行
+                for i, account in enumerate(accounts):
+                    username = account.get('username', '')
+                    password = account.get('password', '')
+                    created_time = account.get('created_time', '')
+                    description = account.get('description', '')
+                    
+                    # 根据显示设置决定密码显示方式
+                    display_password = password if self.show_passwords else '•' * len(password)
+                    
+                    # 网站名显示：第一个账户显示完整网站名，其他账户显示缩进
+                    display_website = website if i == 0 else f"  └─ {website}"
+                    
+                    self.tree.insert('', 'end', values=(display_website, username, display_password, description, created_time))
         
         # 更新统计信息
         if search_term:
